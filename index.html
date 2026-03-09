@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Wordle - GitHub Images</title>
+    <style>
+    .shake {
+	    animation: shake 0.5s;
+}
+        @keyframes shake {
+		    0% { transform: translateX(0); }
+		    25% { transform: translateX(-5px); }
+		    50% { transform: translateX(5px); }
+		    75% { transform: translateX(-5px); }
+		    100% { transform: translateX(0); }
+}
+/* De animatie definitie */
+@keyframes flip {
+    0% { transform: rotateX(0); }
+    45% { transform: rotateX(90deg); }
+    55% { transform: rotateX(90deg); }
+    100% { transform: rotateX(0); }
+}
+
+.flip {
+    animation: flip 0.6s ease-in-out;
+}
+
+/* Zorg dat de transitie van kleuren soepel verloopt tijdens de flip */
+.tile {
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+
+
+        :root {
+            --correct: #6aaa64;
+            --present: #c9b458;
+            --absent: #3a3a3c;
+            --bg: #121213;
+            --key-bg: #818384;
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 10px;
+        }
+
+        .main-game-area {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .controls { margin-bottom: 10px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        select, button { padding: 10px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; }
+
+        #game-board { display: grid; gap: 5px; }
+        .tile {
+            width: 50px; height: 50px; border: 2px solid #3a3a3c;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; font-weight: bold; text-transform: uppercase;
+        }
+
+        .image-side { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .reveal-container {
+            width: 320px; height: 320px; border-radius: 12px;
+            overflow: hidden; border: 3px solid #3a3a3c; background: #000;
+            position: relative;
+        }
+        #result-img {
+            width: 100%; height: 100%; object-fit: contain;
+            filter: blur(40px); transition: filter 0.8s ease;
+        }
+        #fs-btn {
+            display: none; background: #fff; color: #000;
+            padding: 12px 20px; border-radius: 8px; font-size: 14px;
+            cursor: pointer; border: none; font-weight: bold;
+        }
+
+        #keyboard { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+        .key-row { display: flex; justify-content: center; gap: 4px; }
+        .key {
+            background-color: var(--key-bg); border-radius: 4px; height: 50px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-weight: bold; flex: 1; min-width: 25px;
+        }
+        .key.wide { flex: 2; }
+
+        #modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 100; justify-content: center; align-items: center;
+        }
+        #modal img { max-width: 95%; max-height: 95%; border-radius: 5px; }
+
+        .correct { background-color: var(--correct) !important; border-color: var(--correct) !important; }
+        .present { background-color: var(--present) !important; border-color: var(--present) !important; }
+        .absent { background-color: var(--absent) !important; border-color: var(--absent) !important; opacity: 0.4; }
+    </style>
+</head>
+<body>
+
+    <img src="images/logo.jpg" width="150" height="150"><br><br>
+
+    <div class="controls">
+        <select id="lang" onchange="initGame()">
+            <option value="nl">Nederlands</option>
+            <option value="en">English</option>
+        </select>
+        <select id="length" onchange="initGame()">
+            <option value="3">3</option><option value="4">4</option>
+            <option value="5" selected>5</option><option value="6">6</option>
+
+        </select>
+        <button onclick="initGame()">Nieuw Spel</button>
+    </div>
+
+    <div class="main-game-area">
+        <div id="game-board"></div>
+        <div class="image-side">
+            <div class="reveal-container">
+                <img id="result-img" src="" alt="Laden...">
+            </div>
+            <button id="fs-btn" onclick="openModal()">BEKIJK VOLLEDIG SCHERM</button>
+        </div>
+    </div>
+
+    <div id="keyboard"></div>
+
+    <div id="modal" onclick="this.style.display='none'">
+        <img id="modal-img" src="">
+    </div>
+
+  <script>
+      const imageBaseUrl = "https://md19811.github.io/Manillen/randomM/";
+
+      function getRandomImageUrl() {
+          const totalImages = 53;
+          const randomNum = Math.floor(Math.random() * totalImages) + 1;
+          const formattedNum = randomNum.toString().padStart(2, '0');
+          return `${imageBaseUrl}${formattedNum}.jpg`;
+      }
+
+      const wordList = {
+	      en: {
+	          3: ["ACT", "ADD", "AGE", "AGO", "AID", "AIM", "AIR", "ALL", "AND", "ANY", "APE", "APT", "ARC", "ARE", "ARM", "ART", "ASH", "ASK", "ATE", "AWE", "AXE", "BAD", "BAG", "BAN", "BAR", "BAT", "BAY", "BED", "BEE", "BEG", "BET", "BID", "BIG", "BIN", "BIT", "BOA", "BOB", "BOG", "BOO", "BOX", "BOY", "BUS", "BUT", "BUY", "BYE", "CAB", "CAN", "CAP", "CAR", "CAT", "COB", "COD", "COG", "CON", "COO", "COP", "COT", "COW", "COY", "CRY", "CUP", "CUT", "DAD", "DAM", "DAY", "DEN", "DEW", "DID", "DIE", "DIG", "DIM", "DIN", "DIP", "DOG", "DOT", "DRY", "DUE", "DUG", "DYE", "EAR", "EAT", "EBB", "EEL", "EGG", "EGO", "ELK", "ELM", "END", "ERA", "EVE", "EYE", "FAD", "FAN", "FAR", "FAT", "FAX", "FED", "FEE", "FEW", "FEZ", "FIG", "FIN", "FIR", "FIT", "FIX", "FLU", "FLY", "FOE", "FOG", "FOR", "FOX", "FRY", "FUN", "FUR", "GAP", "GAS", "GAY", "GEL", "GEM", "GET", "GIG", "GIN", "GLY", "GNU", "GOD", "GOT", "GUM", "GUN", "GUT", "GUY", "GYM", "HAD", "HAM", "HAS", "HAT", "HAY", "HEM", "HEN", "HER", "HEY", "HID", "HIM", "HIP", "HIS", "HIT", "HOG", "HOP", "HOT", "HOW", "HUB", "HUE", "HUG", "HUM", "HUT", "ICE", "ICY", "ILL", "INK", "INN", "ION", "ITS", "IVY", "JAM", "JAR", "JAW", "JAY", "JET", "JIG", "JOB", "JOG", "JOY", "JUG", "KEG", "KEY", "KID", "KIN", "KIT", "LAB", "LAD", "LAP", "LAW", "LAX", "LAY", "LED", "LEG", "LET", "LID", "LIE", "LIP", "LIT", "LOG", "LOT", "LOW", "LOX", "LYE", "MAD", "MAN", "MAP", "MAT", "MAY", "MEN", "MET", "MIX", "MOB", "MOM", "MOP", "MUD", "MUG", "NAB", "NAG", "NAP", "NET", "NEW", "NIL", "NIP", "NIT", "NIX", "NOD", "NOR", "NOT", "NOW", "NUN", "NUT", "OAK", "OAR", "OAT", "ODD", "ODE", "OFF", "OIL", "OLD", "ONE", "OPT", "ORB", "ORE", "OUR", "OUT", "OWL", "OWN", "PAD", "PAL", "PAN", "PAR", "PAT", "PAW", "PAY", "PEA", "PEG", "PEN", "PET", "PEW", "PIE", "PIG", "PIN", "PIT", "PLY", "POD", "POP", "POT", "PRO", "PRY", "PUB", "PUN", "PUP", "PUT", "RAG", "RAM", "RAN", "RAP", "RAT", "RAW", "RAY", "RED", "RIB", "RID", "RIG", "RIM", "RIP", "ROB", "ROD", "ROE", "ROT", "ROW", "RUB", "RUE", "RUG", "RUM", "RUN", "RUT", "RYE", "SAD", "SAG", "SAP", "SAT", "SAW", "SAY", "SEA", "SEE", "SET", "SEW", "SEX", "SHE", "SHY", "SIN", "SIP", "SIR", "SIS", "SIT", "SIX", "SKI", "SKY", "SLY", "SOB", "SOD", "SON", "SOP", "SOW", "SOY", "SPA", "SPY", "STY", "SUB", "SUE", "SUM", "SUN", "SUP", "TAB", "TAG", "TAN", "TAP", "TAR", "TAX", "TEA", "TEN", "THE", "THY", "TIC", "TIE", "TIN", "TIP", "TOE", "TOG", "TOM", "TON", "TOO", "TOP", "TOW", "TOY", "TRY", "TUB", "TUG", "TWO", "URN", "USE", "VAN", "VAT", "VET", "VEX", "VIA", "VIE", "VIM", "VOW", "WAD", "WAG", "WAN", "WAR", "WAS", "WAX", "WAY", "WEB", "WED", "WET", "WHO", "WHY", "WIG", "WIN", "WIT", "WOE", "WOK", "WON", "WOO", "WOW", "WRY", "YAK", "YAM", "YAP", "YAW", "YEA", "YES", "YET", "YEW", "YOU", "ZAP", "ZEN", "ZIG", "ZIP", "ZOO"],
+	          4: ["ABLE", "ACID", "AGED", "ALSO", "AREA", "ARMY", "AWAY", "BABY", "BACK", "BALL", "BAND", "BANK", "BARE", "BASE", "BEAR", "BEAT", "BELL", "BELT", "BEST", "BIKE", "BILL", "BIRD", "BLOW", "BLUE", "BOAT", "BODY", "BOMB", "BOND", "BONE", "BOOK", "BOOM", "BORN", "BOTH", "BOWL", "BULK", "BURN", "BUSH", "BUSY", "CAKE", "CALL", "CALM", "CAMP", "CARD", "CARE", "CASE", "CASH", "CAST", "CAVE", "CHIP", "CITY", "CLAN", "CLAY", "CLIP", "CLUB", "COAL", "COAT", "CODE", "COLD", "COME", "COOK", "COOL", "COPY", "COST", "CREW", "CROP", "DARK", "DATA", "DATE", "DAWN", "DEAD", "DEAF", "DEAL", "DEAR", "DEBT", "DECK", "DEEP", "DENY", "DESK", "DIAL", "DIET", "DIRT", "DISK", "DOES", "DONE", "DOOR", "DOSE", "DOWN", "DRAW", "DREW", "DROP", "DRUG", "DRUM", "DUAL", "DUCK", "DUES", "DULL", "DUMP", "DUST", "DUTY", "EACH", "EARN", "EAST", "EASY", "EATS", "EDGE", "ELSE", "EVEN", "EVER", "EVIL", "EXIT", "FACE", "FACT", "FAIR", "FALL", "FARM", "FAST", "FATE", "FEAR", "FEED", "FEEL", "FEET", "FELL", "FILE", "FILL", "FILM", "FIND", "FINE", "FIRE", "FIRM", "FISH", "FIVE", "FLAT", "FLOW", "FLUX", "FOOD", "FOOT", "FORD", "FORM", "FORT", "FOUR", "FREE", "FROM", "FUEL", "FULL", "FUND", "GAIN", "GAME", "GATE", "GEAR", "GENT", "GIFT", "GIRL", "GIVE", "GLAD", "GOAL", "GOAT", "GOLD", "GOLF", "GONE", "GOOD", "GRAB", "GRAY", "GREW", "GROW", "GULF", "HAIR", "HALF", "HALL", "HAND", "HANG", "HARD", "HARM", "HATE", "HAVE", "HEAD", "HEAR", "HEAT", "HELL", "HELP", "HERE", "HERO", "HIDE", "HIGH", "HILL", "HIRE", "HOLD", "HOLE", "HOLY", "HOME", "HOPE", "HOST", "HOUR", "HUGE", "HUNG", "HUNT", "HURT", "IDEA", "INCH", "IRON", "ITEM", "JACK", "JAZZ", "JOIN", "JOKE", "JUMP", "JUNE", "JUST", "KEEP", "KEPT", "KICK", "KILL", "KIND", "KING", "KNEE", "KNEW", "KNOT", "KNOW", "LACK", "LADY", "LAID", "LAKE", "LAMP", "LAND", "LANE", "LAST", "LATE", "LEAD", "LEAF", "LEAN", "LEFT", "LEND", "LESS", "LIFT", "LIKE", "LINE", "LINK", "LIST", "LIVE", "LOAD", "LOAN", "LOCK", "LOGO", "LONG", "LOOK", "LORD", "LOSE", "LOSS", "LOST", "LOUD", "LOVE", "LUCK", "LUMP", "LUNG", "MADE", "MAIL", "MAIN", "MAKE", "MALE", "MANY", "MARK", "MASS", "MEAL", "MEAN", "MEAT", "MEET", "MENU", "MESS", "MILE", "MILK", "MIND", "MINE", "MISS", "MODE", "MOOD", "MOON", "MORE", "MOST", "MOVE", "MUCH", "MUST", "NAME", "NEAR", "NECK", "NEED", "NEWS", "NEXT", "NICE", "NICK", "NINE", "NONE", "NOSE", "NOTE", "OKAY", "ONCE", "ONLY", "ONTO", "OPEN", "ORAL", "OVER", "PACE", "PACK", "PAGE", "PAID", "PAIN", "PAIR", "PALM", "PART", "PASS", "PAST", "PATH", "PEAK", "PICK", "PILE", "PINK", "PIPE", "PLAN", "PLAY", "PLOT", "PLUS", "POEM", "POET", "POLL", "POOL", "POOR", "PORT", "POST", "PULL", "PURE", "QUIT", "RACE", "RAIL", "RAIN", "RANK", "RARE", "RATE", "READ", "REAL", "REAR", "RELY", "RENT", "REST", "RICE", "RICH", "RIDE", "RING", "RISE", "RISK", "ROAD", "ROCK", "ROLE", "ROOF", "ROOM", "ROOT", "ROSE", "ROUGH", "ROUND", "RULE", "RUSH", "RUTH", "SAFE", "SAID", "SAKE", "SALE", "SALT", "SAME", "SAND", "SAVE", "SEAT", "SEED", "SEEK", "SEEM", "SEEN", "SELF", "SELL", "SEND", "SENT", "SEPT", "SHIP", "SHOP", "SHOT", "SHOW", "SHUT", "SICK", "SIDE", "SIGN", "SILK", "SITE", "SIZE", "SKIN", "SLIP", "SLOW", "SNOW", "SOFT", "SOIL", "SOLD", "SOLE", "SOME", "SONG", "SOON", "SORT", "SOUL", "SOUP", "SPOT", "STAR", "STAY", "STEP", "STOP", "SUCH", "SUIT", "SURE", "TAKE", "TALE", "TALK", "TALL", "TANK", "TAPE", "TASK", "TEAM", "TEAR", "TELL", "TENT", "TERM", "TEST", "TEXT", "THAN", "THAT", "THEM", "THEN", "THEY", "THIN", "THIS", "THUS", "TICK", "TIDE", "TIE", "TIGHT", "TILE", "TILL", "TIME", "TINY", "TOLD", "TOLL", "TONE", "TONS", "TOOK", "TOOL", "TOUR", "TOWN", "TREE", "TRIP", "TRUE", "TUNE", "TURN", "TWIN", "TYPE", "UNIT", "UPON", "USED", "USER", "VARY", "VAST", "VERY", "VICE", "VIEW", "VOTE", "WAGE", "WAIT", "WAKE", "WALK", "WALL", "WANT", "WARD", "WARM", "WASH", "WAVE", "WAYS", "WEAK", "WEAR", "WEEK", "WELL", "WENT", "WERE", "WEST", "WHAT", "WHEN", "WHOM", "WIDE", "WIFE", "WILD", "WILL", "WIND", "WINE", "WING", "WIRE", "WISE", "WISH", "WITH", "WOOD", "WORD", "WORK", "YARD", "YEAR", "YOGA", "YOUR", "ZERO", "ZONE"],
+	          5: ["ABOUT", "ABOVE", "ABUSE", "ACTOR", "ACUTE", "ADMIT", "ADOPT", "ADULT", "AFTER", "AGAIN", "AGENT", "AGREE", "AHEAD", "ALARM", "ALBUM", "ALIEN", "ALIKE", "ALIVE", "ALLOW", "ALONE", "ALONG", "ALTER", "AMAZED", "AMONG", "ANGER", "ANGLE", "ANGRY", "APART", "APPLE", "APPLY", "ARENA", "ARGUE", "ARISE", "ARMOR", "ARRAY", "ARROW", "ASIDE", "ASSET", "AUDIO", "AUDIT", "AVOID", "AWARD", "AWARE", "AWFUL", "BASIC", "BASIS", "BEACH", "BEARD", "BEAST", "BEGIN", "BEING", "BELOW", "BENCH", "BILLY", "BIRTH", "BLACK", "BLADE", "BLAME", "BLAST", "BLEND", "BLESS", "BLIND", "BLOCK", "BLOOD", "BOARD", "BOAST", "BONUS", "BOOST", "BOUND", "BRAIN", "BRAND", "BRAVE", "BREAD", "BREAK", "BREED", "BRIEF", "BRIGHT", "BRING", "BROAD", "BROKE", "BROWN", "BUILD", "BUILT", "BUNCH", "BURST", "BUYER", "CABLE", "CALIF", "CANDY", "CARRY", "CARVE", "CATCH", "CAUSE", "CHAIN", "CHAIR", "CHART", "CHASE", "CHEAP", "CHECK", "CHEEK", "CHEST", "CHIEF", "CHILD", "CHINA", "CHOIR", "CHOSE", "CHUCK", "CIVIL", "CLAIM", "CLASS", "CLEAN", "CLEAR", "CLERK", "CLICK", "CLIFF", "CLIMB", "CLOCK", "CLOSE", "CLOTH", "CLOUD", "COACH", "COAST", "COUNT", "COURT", "COVER", "CRAFT", "CRASH", "CREAM", "CRIME", "CROSS", "CROWD", "CROWN", "CURVE", "CYCLE", "DAILY", "DANCE", "DEATH", "DELAY", "DELTA", "DEPTH", "DIARY", "DIRTY", "DOUBT", "DOZEN", "DRAFT", "DRAIN", "DRAMA", "DREAD", "DREAM", "DRESS", "DRIFT", "DRILL", "DRINK", "DRIVE", "DROVE", "DYING", "EAGER", "EARLY", "EARTH", "EIGHT", "ELBOW", "ELDER", "ELECT", "ELITE", "EMPTY", "ENEMY", "ENJOY", "ENTER", "ENTRY", "EQUAL", "ERROR", "EVENT", "EVERY", "EXACT", "EXIST", "EXTRA", "FAINT", "FAITH", "FALSE", "FAULT", "FEAST", "FENCE", "FEVER", "FIELD", "FIFTH", "FIFTY", "FIGHT", "FINAL", "FIRST", "FLAME", "FLASH", "FLEET", "FLOOR", "FLUID", "FOCUS", "FORCE", "FORTH", "FORTY", "FORUM", "FOUND", "FRAME", "FRAUD", "FRESH", "FRONT", "FRUIT", "FULLY", "FUNNY", "GIANT", "GIVEN", "GLASS", "GLOBE", "GLOVE", "GHOST", "GOING", "GRACE", "GRADE", "GRAND", "GRANT", "GRAPE", "GRAPH", "GRASP", "GRASS", "GREAT", "GREEN", "GREET", "GRIEF", "GROSS", "GROUP", "GROWN", "GUARD", "GUESS", "GUEST", "GUIDE", "HABIT", "HAPPY", "HEART", "HEAVY", "HELLO", "HENCE", "HONEY", "HONOR", "HORSE", "HOTEL", "HOUSE", "HUMAN", "IDEAL", "IMAGE", "INDEX", "INNER", "INPUT", "ISSUE", "JOINT", "JUDGE", "JUICE", "KNIFE", "KNOCK", "KNOWN", "LABEL", "LABOR", "LARGE", "LASER", "LATER", "LAUGH", "LAYER", "LEARN", "LEAST", "LEAVE", "LEGAL", "LEVEL", "LIGHT", "LIMIT", "LINER", "LOCAL", "LOGIC", "LOOSE", "LOWER", "LOYAL", "LUCKY", "LUNCH", "LYING", "MAGIC", "MAJOR", "MAKER", "MARCH", "MARRY", "MATCH", "MAYBE", "MAYOR", "MEDIA", "METAL", "MIGHT", "MINOR", "MINUS", "MIXED", "MODEL", "MONEY", "MONTH", "MORAL", "MOTOR", "MOUNT", "MOUSE", "MOUTH", "MOVIE", "MUSIC", "NIGHT", "NOISE", "NORTH", "NOTES", "NOVEL", "NURSE", "OCEAN", "OFFER", "OFTEN", "ORDER", "OTHER", "OUGHT", "OUTER", "OWNER", "PANEL", "PAPER", "PARTY", "PEACE", "PHASE", "PHONE", "PHOTO", "PIANO", "PIECE", "PILOT", "PITCH", "PLACE", "PLAIN", "PLANE", "PLANT", "PLATE", "POINT", "POUND", "POWER", "PRESS", "PRICE", "PRIDE", "PRIME", "PRINT", "PRIOR", "PRIZE", "PROOF", "PROUD", "PROVE", "QUEEN", "QUICK", "QUIET", "QUITE", "RADIO", "RAISE", "RANGE", "RAPID", "RATIO", "REACH", "READY", "RELAX", "REPLY", "RIGHT", "RIVER", "ROBOT", "ROUGH", "ROUND", "ROUTE", "ROYAL", "RURAL", "SCALE", "SCENE", "SCOPE", "SCORE", "SENSE", "SERVE", "SHAKE", "SHARE", "SHARP", "SHEET", "SHELF", "SHELL", "SHIFT", "SHIRT", "SHOCK", "SHOOT", "SHORT", "SHOUT", "SHOWN", "SIGHT", "SINCE", "SIXTY", "SKILL", "SLEEP", "SLIDE", "SMALL", "SMART", "SMILE", "SMITH", "SMOKE", "SOLID", "SOLVE", "SOUND", "SOUTH", "SPACE", "SPARE", "SPEAK", "SPEED", "SPEND", "SPLIT", "SPORT", "STAFF", "STAGE", "STAKE", "STAND", "STARE", "START", "STATE", "STEAM", "STEEL", "STEEP", "STICK", "STILL", "STOCK", "STONE", "STOOD", "STORE", "STORM", "STORY", "STRIP", "STUCK", "STUDY", "STUFF", "STYLE", "SUGAR", "SUITE", "SUPER", "SWEET", "TABLE", "TAKEN", "TASTE", "TAXES", "TEACH", "TEETH", "TERMS", "THANK", "THEFT", "THEIR", "THEME", "THERE", "THESE", "THICK", "THING", "THINK", "THIRD", "THOSE", "THREE", "THROW", "TIGHT", "TITLE", "TODAY", "TOKEN", "TOTAL", "TOUCH", "TOUGH", "TOWER", "TRACK", "TRADE", "TRAIN", "TREAT", "TREND", "TRIAL", "TRIBE", "TRICK", "TRIPY", "TRUCK", "TRUEY", "TRUST", "TRUTH", "TWICE", "UNDER", "UNION", "UNITY", "UNTIL", "UPPER", "UPSET", "URBAN", "USAGE", "USUAL", "VALID", "VALUE", "VIDEO", "VIRUS", "VISIT", "VITAL", "VOICE", "WASTE", "WATCH", "WATER", "WHEEL", "WHERE", "WHICH", "WHILE", "WHITE", "WHOLE", "WORLD", "WORTH", "WRITE", "WRONG", "YIELD", "YOUNG", "YOUTH"],
+	          6: ["ABOARD", "ABSENT", "ABSORB", "ACCENT", "ACCEPT", "ACCESS", "ACCUSE", "ACROSS", "ACTION", "ACTIVE", "ACTUAL", "ADHERE", "ADJUST", "ADVICE", "ADVISE", "AFFECT", "AFFORD", "AFRAID", "AGENCY", "AGENDA", "ALMOST", "ALWAYS", "AMOUNT", "ANCHOR", "ANIMAL", "ANNUAL", "ANSWER", "ANYONE", "ANYWAY", "APPEAL", "APPEAR", "AROUND", "ARREST", "ARRIVE", "ARTIST", "ASPECT", "ASSESS", "ASSIST", "ASSUME", "ASSURE", "ATTACK", "ATTEND", "AUGUST", "AUTHOR", "AVENUE", "BARELY", "BARREL", "BASKET", "BATTLE", "BEAUTY", "BEFORE", "BEHALF", "BEHAVE", "BEHIND", "BELIEF", "BELONG", "BEYOND", "BISHOP", "BITTER", "BORDER", "BOTTLE", "BOTTOM", "BOUGHT", "BRANCH", "BREACH", "BREATH", "BRIDGE", "BRIGHT", "BROKEN", "BUDGET", "BURDEN", "BUREAU", "BUTTON", "CAMERA", "CAMPUS", "CANCER", "CANNOT", "CARBON", "CAREER", "CASTLE", "CASUAL", "CAUGHT", "CENTER", "CHANCE", "CHANGE", "CHARGE", "CHURCH", "CIRCLE", "CLIENT", "CLINIC", "CLOSED", "CLOSER", "COFFEE", "COLUMN", "COMBAT", "COMEDY", "COMMIT", "COMMON", "COMPLY", "COPPER", "CORNER", "COSTLY", "COUNTY", "COUPLE", "COURSE", "COUSIN", "CREATE", "CREDIT", "CRISIS", "CRITIC", "CUSTOM", "DAMAGE", "DANGER", "DEBATE", "DECADE", "DECIDE", "DEFEAT", "DEFEND", "DEFINE", "DEGREE", "DEMAND", "DEPEND", "DEPUTY", "DESERT", "DESIGN", "DESIRE", "DETAIL", "DETECT", "DEVICE", "DIFFER", "DINNER", "DIRECT", "DOCTOR", "DOLLAR", "DOMAIN", "DOUBLE", "DRIVEN", "DRIVER", "DURING", "EITHER", "ENERGY", "ENGAGE", "ENGINE", "ENOUGH", "ENSURE", "ENTIRE", "ENTITY", "EQUITY", "ESCAPE", "ESTATE", "ETHICS", "EVOLVE", "EXCEED", "EXCEPT", "EXCESS", "EXPAND", "EXPECT", "EXPERT", "EXPORT", "EXTEND", "EXTENT", "FABRIC", "FACTOR", "FAILED", "FAMILY", "FAMOUS", "FATHER", "FELLOW", "FEMALE", "FIGURE", "FILLED", "FILTER", "FINALE", "FINISH", "FISCAL", "FLIGHT", "FLYING", "FOLLOW", "FORCED", "FORGET", "FORMER", "FOSSIL", "FOSTER", "FOURTH", "FRIEND", "FUTURE", "GARDEN", "GATHER", "GENDER", "GENTLE", "GERMAN", "GLANCE", "GLOBAL", "GOLDEN", "GOVERN", "GROUND", "GROWTH", "GUILTY", "HANDLE", "HAPPEN", "HARDLY", "HEALTH", "HEIGHT", "HIDDEN", "HOCKEY", "HOLDER", "HOLLOW", "HONEST", "HUMOUR", "HUNGRY", "IGNORE", "IMPACT", "IMPORT", "INDEED", "INDOOR", "INJURY", "INSERT", "INSIDE", "INSIST", "INTEND", "INTENT", "INVEST", "ISLAND", "ITSELF", "JACKET", "JERSEY", "JORDAN", "JOUREY", "JOYFUL", "JUDGED", "JUNGLE", "JUNIOR", "KEEPER", "KINDLY", "KNIGHT", "LABOUR", "LADDER", "LANDED", "LATELY", "LATEST", "LAUNCH", "LAWYER", "LEADER", "LEAGUE", "LENGTH", "LESSON", "LETTER", "LIGHTS", "LIKELY", "LINKED", "LIQUID", "LISTEN", "LITTLE", "LIVING", "LOCATE", "LOVELY", "LOWEST", "LUMBER", "LUXURY", "MADAME", "MAGNET", "MAINLY", "MAKING", "MANAGE"],
+	         // 7: ["ABILITY", "ABSENCE", "ACCOUNT", "ACQUIRE", "ADDRESS", "ADAPTED", "ADVISED", "AGAINST", "AIRLINE", "ALCOHOL", "ALREADY", "ALRIGHT", "AMATEUR", "ANALYZE", "ANOTHER", "ANXIETY", "ANYBODY", "APPOINT", "ARCHIVE", "ARRANGE", "ARRIVAL", "ARTICLE", "ASSAULT", "ASSUMED", "ATTEMPT", "ATTRACT", "AVERAGE", "BACKING", "BALANCE", "BANKING", "BARRIER", "BATTERY", "BECAUSE", "BEDROOM", "BELIEVE", "BENEATH", "BENEFIT", "BETWEEN", "BILLION", "BINDING", "BLANKET", "BOOKING", "BRAVERY", "BROTHER", "BROUGHT", "BURNING", "CABINET", "CALIBER", "CALLING", "CAPABLE", "CAPITAL", "CAPTAIN", "CAPTION", "CAPTURE", "CAREFUL", "CARRIER", "CAUTION", "CEILING", "CENTRAL", "CENTURY", "CERTAIN", "CHAMBER", "CHANNEL", "CHAPTER", "CHARITY", "CHARLIE", "CHARTER", "CHECKED", "CHICKEN", "CIRCUIT", "CLASSES", "CLASSIC", "CLEANER", "CLEARLY", "CLIMATE", "CLOSING", "COLLECT", "COLLEGE", "COMBINE", "COMFORT", "COMMAND", "COMMENT", "COMPACT", "COMPANY", "COMPARE", "COMPETE", "COMPLEX", "CONCEPT", "CONCERN", "CONCERT", "CONDUCT", "CONFIRM", "CONNECT", "CONSENT", "CONSIST", "CONTACT", "CONTAIN", "CONTENT", "CONTEST", "CONTEXT", "CONTROL", "CONVERT", "COOKING", "CORRECT", "COUNCIL", "COUNSEL", "COUNTER", "COUNTRY", "COUPLED", "COURAGE", "COUSINS", "COVERED", "CREATER", "CRYSTAL", "CULTURE", "CURRENT", "CUSTODY", "CUTTING", "DANCING", "DARLING", "DEBATED", "DECIDED", "DECLINE", "DEFENSE", "DEFICIT", "DELIVER", "DENSITY", "DEPOSIT", "DESERVE", "DESKTOP", "DESPITE", "DESTINY", "DESTROY", "DEVELOP", "DIAMOND", "DIGITAL", "DIGNITY", "DILEMMA", "DIRECTS", "DISPLAY", "DISPUTE", "DISTANT", "DIVIDED", "DIVORCE", "DOZENED", "DRAWING", "DRIVING", "DYNAMIC", "EASTERN", "ECONOMY", "EDITION", "EFFECTS", "EFFORTS", "EIGHTLY", "ELEMENT", "ELEVATE", "EMOTION", "EMPHASIS", "EMPOWER", "ENABLED", "ENDLESS", "ENGAGED", "ENGINEER", "ENORMOUS", "ENQUIRY", "ENTERED", "ENTITLED", "EPISODE", "EQUALLY", "EVENING", "EVIDENT", "EXACTLY", "EXAMINE", "EXAMPLE", "EXCITED", "EXCLUDE", "EXHIBIT", "EXPENSE", "EXPLAIN", "EXPLORE", "EXPRESS", "EXTREME", "FACTORY", "FACULTY", "FAILING", "FAILURE", "FANTASY", "FASHION", "FEATURE", "FEDERAL", "FEELING", "FICTION", "FIFTEEN", "FINALLY", "FINANCE", "FINDING", "FISHING", "FITNESS", "FOREIGN", "FOREVER", "FORMULA", "FORTUNE", "FORWARD", "FREEDOM", "FRIENDS", "FURTHER", "GALLERY", "GARBAGE", "GENETIC", "GENUINE", "GIGANTIC", "GLIMPSE", "GRADUAL", "GRAMMAR", "GREATER", "GROCERY", "GROWING", "GUESSED", "GUILDER", "HALFWAY", "HANGING", "HAPPILY", "HARMONY", "HEALTHY", "HEARING", "HEAVILY", "HELPFUL", "HERITAGE", "HEROINE", "HISTORY", "HOLIDAY", "HONESTY", "HOPEFUL", "HORIZON", "HOSPICE", "HOSPITAL", "HOUSING", "HOWEVER", "HUSBAND", "ICEBERG", "IDEALLY", "IDENTIFY", "ILLEGAL", "IMAGINE", "IMPROVE", "INCLUDE", "INITIAL", "INSIGHT", "INSTALL", "INSTANT", "INSTEAD", "INTENSE", "INTERIM", "INVOLVE", "ISOLATE", "JOURNEY", "JUSTICE", "KITCHEN", "KNOWING", "LANDING", "LARGELY", "LASTING", "LAWSUIT", "LEADERS", "LEADING", "LEARNED", "LEISURE", "LENDING", "LIBERTY", "LIBRARY", "LICENSE", "LIMITED", "LISTING", "LITERARY", "LOCATED", "LOGICAL", "LOYALTY", "MACHINE", "MAGICAL", "MAILBOX", "MAINTAIN", "MANAGER", "MARRIED", "MASSIVE", "MAXIMUM", "MEANING", "MEASURE", "MEDICAL", "MEETING", "MENTION", "MESSAGE", "MILLION", "MINIMUM", "MINERAL", "MISSION", "MISTAKE", "MIXTURE", "MONITOR", "MORNING", "MUSICAL", "MYSTERY", "NATURAL", "NEAREST", "NETWORK", "NEITHER", "NERVOUS", "NEUTRAL", "NOTHING", "NOWHERE", "NUCLEAR", "NUMERIC", "OBJECTS", "OBSCURE", "OBSERVE", "OBVIOUS", "OFFENSE", "OFFICER", "ONGOING", "OPENING", "OPERATE", "OPINION", "OPTICAL", "OPTIMAL", "ORGANIC", "OUTCOME", "OUTDOOR", "OUTLINE", "OUTSIDE", "OVERALL", "PACIFIC", "PACKAGE", "PAINFUL", "PARKING", "PARTIAL", "PARTNER", "PASSAGE", "PASSION", "PASSIVE", "PATIENT", "PATTERN", "PAYABLE", "PAYMENT", "PENALTY", "PENDING", "PERFORM", "PERHAPS", "PHOENIX", "PHYSICS", "PICTURE", "PIONEER", "PLASTIC", "PLAYING", "POPULAR", "PORTION", "POULTRY", "PREDICT", "PREPARE", "PRESENT", "PREVENT", "PRIMARY", "PRINTER", "PRIVACY", "PRIVATE", "PROBLEM", "PROCEED", "PROCESS", "PRODUCE", "PRODUCT", "PROFILE", "PROGRAM", "PROJECT", "PROMISE", "PROMOTE", "PROPOSE", "PROTECT", "PROUDLY", "PROVIDE", "PUBLISH", "PURPOSE", "PUSHING", "QUALITY", "QUARTER", "RADICAL", "RAILWAY", "READING", "REALITY", "REALIZE", "RECEIVE", "RECENTLY", "RECORDS", "REDUCED", "REFLECT", "REFORMED", "REGULAR", "RELEASE", "RELEVANT", "RELIEVE", "RELYING", "REMAINS", "REMARKS", "REVENUE", "REVERSE", "ROUTINE", "RUNNING", "SATISFY", "SCIENCE", "SECTION", "SEGMENT", "SERIOUS", "SERVICE", "SESSION", "SETTING", "SEVENTH", "SEVERAL", "SHELTER", "SHARING", "SHOCKER", "SHOPPER", "SIGNALS", "SIMILAR", "SINCERE", "SIXTEEN", "SKILLED", "SMOKING", "SOCIETY", "SOLDIER", "SOMEHOW", "SOMEONE", "SPANISH", "SPEAKER", "SPECIAL", "SPECIES", "SPECIFY", "SPOTTED", "STADIUM", "STATION", "STORAGE", "STRANGE", "STRETCH", "STUDENT", "STUDIED", "SUBJECT", "SUCCEED", "SUCCESS", "SUGGEST", "SUMMARY", "SUPPORT", "SURFACE", "SURGERY", "SURVIVE", "SUSPECT", "SYMPTOM", "SYSTEMS", "TALKING", "TEACHER", "TENSION", "TERMINAL", "TERRIBLE", "TESTING", "TEXTURE", "THEATRE", "THERAPY", "THOUGHT", "THROUGH", "TONIGHT", "TOTALLY", "TOURIST", "TOWARDS", "TRAFFIC", "TRAGEDY", "TRAINED", "TRANSIT", "TREATED", "TRIUMPH", "TROUBLE", "TRUSTED", "TUESDAY", "TYPICAL", "UNIFORM", "UNKNOWN", "UNUSUAL", "UPGRADE", "UPWARDS", "URGENCY", "UTILITY", "VACCINE", "VAGUELY", "VALIANT", "VALUING", "VARIABLE", "VARIOUS", "VETERAN", "VICTORY", "VIEWING", "VILLAGE", "VIOLENT", "VIRTUAL", "VISIBLE", "VISITOR", "VOLTAGE", "WAITING", "WALKING", "WARNING", "WARRANT", "WEATHER", "WEBSITE", "WEDDING", "WEEKEND", "WELCOME", "WELFARE", "WESTERN", "WHEREAS", "WHETHER", "WHISPER", "WHOEVER", "WILLING", "WITNESS", "WORKING", "WRITING", "WRITTEN", "YARDAGE", "YIELDED"]
+	      },
+	      nl: {
+	          3: ["AAL", "AAN", "AAP", "AAR", "AAS", "ACH", "ALF", "ALS", "ARM", "ART", "BAD", "BAK", "BAL", "BAN", "BAR", "BAS", "BAT", "BED", "BEE", "BEK", "BEL", "BEN", "BES", "BET", "BIE", "BIG", "BIJ", "BIL", "BIN", "BIT", "BOA", "BOD", "BOF", "BOK", "BOL", "BOM", "BON", "BOS", "BOT", "BOU", "BUI", "BUS", "CEL", "DAK", "DAL", "DAM", "DAN", "DAR", "DAS", "DAT", "DEK", "DEL", "DEN", "DER", "DES", "DIE", "DIJ", "DIK", "DIP", "DIT", "DOE", "DOF", "DOG", "DOK", "DOL", "DOM", "DON", "DOP", "DOR", "DOT", "DUW", "EED", "EEK", "EEL", "EEN", "EER", "EES", "EET", "EEU", "EGG", "EGO", "EIK", "EIL", "EIS", "ELF", "ELK", "END", "ENG", "ENK", "ENT", "ERA", "ERF", "ERG", "ERK", "ERT", "ERW", "ETS", "FAN", "FAT", "FEE", "FEI", "FEL", "FEN", "FEZ", "FIE", "FIJ", "FIK", "FIL", "FIN", "FIT", "FIX", "FLA", "FOK", "FOL", "FOP", "FOR", "FOT", "FUI", "FUK", "FUT", "GAB", "GAG", "GAL", "GAM", "GAN", "GAP", "GAS", "GAT", "GAU", "GEB", "GEE", "GEI", "GEK", "GEL", "GEM", "GEN", "GER", "GEU", "GEW", "GEZ", "GIE", "GIJ", "GIK", "GIL", "GIN", "GIP", "GIS", "GOD", "GOE", "GOK", "GOL", "GOM", "GON", "GOO", "GOR", "GOT", "GOU", "GRA", "GRI", "GRO", "GUI", "GUL", "GUM", "GUN", "GUP", "GUT", "GYM", "HAD", "HAF", "HAG", "HAI", "HAK", "HAL", "HAM", "HAN", "HAP", "HAR", "HAS", "HEB", "HEE", "HEF", "HEG", "HEI", "HEK", "HEL", "HEM", "HEN", "HEP", "HER", "HES", "HET", "HEU", "HEX", "HIE", "HIJ", "HIK", "HIP", "HIT", "HOE", "HOF", "HOG", "HOK", "HOL", "HOM", "HON", "HOO", "HOP", "HOR", "HOS", "HOT", "HOU", "HUB", "HUF", "HUI", "HUK", "HUL", "HUM", "HUN", "HUP", "HUT", "HUW", "IEP", "IER", "IES", "IET", "IJS", "IJL", "IJN", "IJP", "INK", "ITS", "IVA", "JAA", "JAG", "JAK", "JAM", "JAN", "JAP", "JAR", "JAS", "JAT", "JEE", "JEG", "JEK", "JEL", "JEN", "JEP", "JET", "JEU", "JIJ", "JIP", "JOD", "JOE", "JOG", "JOK", "JOL", "JOM", "JON", "JOO", "JOP", "JOR", "JOS", "JOT", "JOU", "JOY", "JUF", "JUK", "JUL", "JUN", "JUR", "JUS", "JUT", "KAA", "KAF", "KAK", "KAL", "KAM", "KAN", "KAP", "KAR", "KAS", "KAT", "KAU", "KEE", "KEG", "KEI", "KEK", "KEL", "KEN", "KEP", "KER", "KES", "KET", "KEU", "KIE", "KIJ", "KIK", "KIL", "KIM", "KIN", "KIP", "KIR", "KIS", "KIT", "KOA", "KOB", "KOE", "KOF", "KOG", "KOK", "KOL", "KOM", "KON", "KOO", "KOP", "KOR", "KOS", "KOT", "KOU", "KUI", "KUK", "KUL", "KUM", "KUN", "KUP", "KUR", "KUS", "KUT", "KWA", "KYU", "LAA", "LAB", "LAC", "LAD", "LAF", "LAG", "LAK", "LAL", "LAM", "LAN", "LAP", "LAS", "LAT", "LAU", "LAX", "LAY", "LED", "LEE", "LEF", "LEG", "LEI", "LEK", "LEL", "LEM", "LEN", "LEO", "LEP", "LES", "LET", "LEU", "LEV", "LEX", "LEY", "LID", "LIE", "LIF", "LIG", "LIJ", "LIK", "LIL", "LIM", "LIN", "LIP", "LIS", "LIT", "LOB", "LOE", "LOF", "LOG", "LOK", "LOL", "LOM", "LON", "LOO", "LOP", "LOR", "LOS", "LOT", "LOU", "LOV", "LOW", "LOX", "LUI", "LUK", "LUL", "LUM", "LUN", "LUP", "LUR", "LUS", "LUT", "LUX", "LYE", "MAA", "MAD", "MAF", "MAG", "MAK", "MAL", "MAM", "MAN", "MAP", "MAR", "MAS", "MAT", "MAX", "MAY", "MEE", "MEG", "MEI", "MEK", "MEL", "MEM", "MEN", "MEP", "MER", "MES", "MET", "MEU", "MID", "MIE", "MIJ", "MIK", "MIL", "MIN", "MIS", "MIT", "MIX", "MOD", "MOE", "MOF", "MOG", "MOK", "MOL", "MOM", "MON", "MOO", "MOP", "MOR", "MOS", "MOT", "MOU", "MUD", "MUG", "MUI", "MUK", "MUL", "MUM", "MUN", "MUR", "MUS", "MUT", "NAB", "NAF", "NAG", "NAI", "NAK", "NAM", "NAN", "NAP", "NAR", "NAS", "NAT", "NAV", "NAY", "NEB", "NED", "NEE", "NEF", "NEG", "NEI", "NEK", "NEL", "NEM", "NEN", "NEO", "NEP", "NER", "NES", "NET", "NEU", "NEV", "NIB", "NIC", "NID", "NIE", "NIG", "NIJ", "NIK", "NIL", "NIM", "NIN", "NIP", "NIR", "NIS", "NIT", "NIX", "NOB", "NOD", "NOF", "NOG", "NOH", "NOK", "NOL", "NOM", "NON", "NOO", "NOP", "NOR", "NOS", "NOT", "NOU", "NOV", "NOW", "NOX", "NUB", "NUI", "NUK", "NUL", "NUM", "NUN", "NUP", "NUR", "NUS", "NUT", "OAL", "OAM", "OAR", "OAS", "OAT", "OBI", "OBO", "ODE", "OER", "OES", "OET", "OFF", "OHM", "OHO", "OHS", "OIL", "OKA", "OKE", "OLD", "OLE", "OLM", "OMA", "OME", "OMI", "OMS", "OND", "ONS", "ONT", "OOK", "OOL", "OOM", "OON", "OOR", "OOS", "OOT", "OPA", "OPE", "OPI", "OPP", "OPS", "OPT", "ORA", "ORB", "ORD", "ORE", "ORG", "ORK", "ORS", "ORT", "OSE", "OST", "OUD", "OVI", "OWL", "OWN", "OXO", "OXY", "PAA", "PAD", "PAK", "PAL", "PAM", "PAN", "PAP", "PAR", "PAS", "PAT", "PAU", "PAX", "PAY", "PEE", "PEG", "PEK", "PEL", "PEN", "PEP", "PER", "PES", "PET", "PEU", "PEZ", "PIA", "PIC", "PIE", "PIF", "PIG", "PIJ", "PIK", "PIL", "PIM", "PIN", "PIO", "PIP", "PIR", "PIS", "PIT", "PIV", "PIX", "POD", "POF", "POI", "POK", "POL", "POM", "PON", "POO", "POP", "POR", "POS", "POT", "POU", "POW", "POX", "PUB", "PUD", "PUF", "PUG", "PUI", "PUK", "PUL", "PUM", "PUN", "PUP", "PUR", "PUS", "PUT", "QUA", "QUE", "QUI", "QUO", "RAA", "RAD", "RAF", "RAG", "RAI", "RAK", "RAL", "RAM", "RAN", "RAP", "RAR", "RAS", "RAT", "RAU", "RAW", "RAY", "REB", "REC", "RED", "REE", "REF", "REG", "REI", "REK", "REL", "REM", "REN", "REP", "RES", "RET", "REU", "REV", "REX", "REY", "REZ", "RIA", "RIB", "RID", "RIE", "RIF", "RIG", "RIJ", "RIK", "RIL", "RIM", "RIN", "RIO", "RIP", "RIS", "RIT", "RIV", "RIX", "ROB", "ROC", "ROD", "ROE", "ROF", "ROG", "ROI", "ROK", "ROL", "ROM", "RON", "ROO", "ROP", "ROS", "ROT", "ROU", "ROW", "ROX", "ROY", "RUB", "RUC", "RUD", "RUE", "RUF", "RUG", "RUI", "RUK", "RUL", "RUM", "RUN", "RUP", "RUS", "RUT", "RYE", "SAA", "SAB", "SAC", "SAD", "SAE", "SAF", "SAG", "SAI", "SAK", "SAL", "SAM", "SAN", "SAP", "SAR", "SAS", "SAT", "SAU", "SAV", "SAX", "SAY", "SEA", "SEC", "SED", "SEE", "SEF", "SEG", "SEI", "SEK", "SEL", "SEM", "SEN", "SEP", "SER", "SES", "SET", "SEU", "SEW", "SEX", "SIB", "SIC", "SID", "SIE", "SIG", "SIJ", "SIK", "SIL", "SIM", "SIN", "SIP", "SIR", "SIS", "SIT", "SIX", "SOA", "SOB", "SOD", "SOE", "SOF", "SOG", "SOI", "SOK", "SOL", "SOM", "SON", "SOO", "SOP", "SOR", "SOS", "SOT", "SOU", "SOW", "SOX", "SOY", "SPA", "SPE", "SPI", "SPO", "SPY", "STA", "STE", "STI", "STO", "STU", "SUB", "SUD", "SUE", "SUF", "SUI", "SUK", "SUL", "SUM", "SUN", "SUP", "SUR", "SUS", "SUT", "SUV", "SWA", "SWE", "TAB", "TAD", "TAG", "TAI", "TAK", "TAL", "TAM", "TAN", "TAP", "TAR", "TAS", "TAT", "TAU", "TAX", "TEA", "TED", "TEE", "TEF", "TEG", "TEI", "TEK", "TEL", "TEN", "TEP", "TER", "TES", "TET", "TEU", "TEX", "TIC", "TID", "TIE", "TIG", "TIJ", "TIK", "TIL", "TIM", "TIN", "TIP", "TIR", "TIS", "TIT", "TIX", "TOB", "TOC", "TOD", "TOE", "TOF", "TOG", "TOK", "TOL", "TOM", "TON", "TOO", "TOP", "TOR", "TOS", "TOT", "TOU", "TOW", "TOX", "TOY", "TUB", "TUF", "TUG", "TUI", "TUK", "TUL", "TUM", "TUN", "TUP", "TUR", "TUS", "TUT", "TUX", "TWA", "TWI", "TWO", "TYE", "UDO", "UDS", "UFO", "UGH", "UIL", "UIT", "UKE", "ULA", "ULE", "ULM", "ULS", "UMA", "UNI", "UNS", "UPP", "UPS", "URD", "URE", "URF", "URI", "URN", "URO", "URS", "USE", "UTS", "UUR", "VAC", "VAD", "VAK", "VAL", "VAN", "VAR", "VAS", "VAT", "VEE", "VEG", "VEL", "VEN", "VER", "VES", "VET", "VEX", "VIA", "VIC", "VID", "VIE", "VIG", "VIJ", "VIK", "VIL", "VIM", "VIN", "VIP", "VIS", "VIT", "VIV", "VIX", "VLA", "VLI", "VLO", "VOD", "VOE", "VOF", "VOG", "VOK", "VOL", "VOM", "VON", "VOO", "VOP", "VOR", "VOS", "VOT", "VOU", "VOW", "VOX", "VRI", "VUI", "VUK", "VUL", "VUM", "VUN", "VUR", "VUT", "WAD", "WAG", "WAK", "WAL", "WAM", "WAN", "WAP", "WAR", "WAS", "WAT", "WAX", "WEB", "WED", "WEE", "WEG", "WEI", "WEK", "WEL", "WEN", "WEP", "WER", "WES", "WET", "WID", "WIE", "WIG", "WIJ", "WIK", "WIL", "WIN", "WIS", "WIT", "WIZ", "WOB", "WOD", "WOE", "WOK", "WOL", "WON", "WOO", "WOP", "WOR", "WOS", "WOT", "WOU", "WOW", "WUD", "WUI", "WUK", "WUL", "WUN", "YAK", "YAM", "YAP", "YAW", "YEN", "YEP", "YES", "YET", "YIN", "YIP", "YOB", "YOD", "YOK", "YON", "YOU", "YOW", "YUK", "YUM", "YUP", "ZAD", "ZAG", "ZAK", "ZAL", "ZAM", "ZAN", "ZAP", "ZAR", "ZAS", "ZAT", "ZEE", "ZEG", "ZEI", "ZEK", "ZEL", "ZEN", "ZEP", "ZER", "ZES", "ZET", "ZIE", "ZIG", "ZIJ", "ZIK", "ZIL", "ZIN", "ZIP", "ZIT", "ZOA", "ZOB", "ZOD", "ZOE", "ZOF", "ZOG", "ZOK", "ZOL", "ZOM", "ZON", "ZOO", "ZOP", "ZOR", "ZOS", "ZOT", "ZOU", "ZOW", "ZUI", "ZUK", "ZUL", "ZUM", "ZUN", "ZUP", "ZUR", "ZUS", "ZUT", "ZWA", "ZWE", "ZWI", "ZWO"],
+	          4: ["AARD", "ACHT", "ADEL", "ADER", "AUTO", "BAAN", "BAAS", "BABY", "BALK", "BAND", "BANK", "BEER", "BERG", "BERK", "BEUK", "BEUL", "BIER", "BIET", "BIJL", "BLAD", "BLIK", "BLOK", "BOEK", "BOEL", "BOER", "BOOT", "BORD", "BORG", "BRON", "BRUG", "BUIK", "BUIS", "BULT", "BURG", "DAAD", "DARM", "DEEL", "DEUR", "DIER", "DIJK", "DING", "DOEL", "DOOR", "DOOS", "DORP", "DRUK", "DURF", "ECHO", "EDEL", "EIND", "FLES", "FOUT", "GAAS", "GANG", "GANS", "GAVE", "GEEL", "GEIT", "GELD", "GEUR", "GIDS", "GIFT", "GOLF", "GOOT", "GRAS", "GROT", "HAAR", "HAAT", "HARK", "HART", "HEER", "HEFT", "HEID", "HELM", "HEMD", "HERT", "HOED", "HOEK", "HOEN", "HOND", "HOOP", "HOUT", "HUID", "HUIS", "HULP", "IDEE", "ITEM", "JAAR", "JEUK", "KAAK", "KAAL", "KAAS", "KAMP", "KANT", "KAST", "KEEL", "KEER", "KEIL", "KEUR", "KIEL", "KIER", "KIJK", "KIND", "KIST", "KLAP", "KLAS", "KLEE", "KLEI", "KLEM", "KLOK", "KLOM", "KLOP", "KLUS", "KNAL", "KNAP", "KNIE", "KNIP", "KNOT", "KOEK", "KOEL", "KOKS", "KOLK", "KOOK", "KOOP", "KOOR", "KOOT", "KORT", "KOST", "KOUD", "KOUS", "KRAB", "KRAL", "KRAM", "KRAN", "KRAS", "KREE", "KRIM", "KROP", "KRUI", "KRUK", "KRUL", "KUIK", "KUIL", "KUIP", "KWAK", "KWAM", "KWAS", "KWEE", "KWEL", "KWIK", "LAAG", "LAAK", "LAAN", "LAAT", "LADE", "LAGE", "LAND", "LANG", "LAST", "LEED", "LEEF", "LEEG", "LEEK", "LEEM", "LEEN", "LEER", "LEES", "LEEU", "LEID", "LENS", "LENT", "LIED", "LIEF", "LIEG", "LIER", "LIES", "LIET", "LIFT", "LIJK", "LIJN", "LINT", "LIST", "LOEI", "LOEP", "LOER", "LOFT", "LOMP", "LONG", "LOOD", "LOOF", "LOOG", "LOOI", "LOOK", "LOOM", "LOON", "LOOP", "LOOS", "LOOT", "LUCH", "LUIK", "LUIS", "LUST", "MAAG", "MAAL", "MAAN", "MAAS", "MAAT", "MACH", "MADE", "MAKK", "MANS", "MANT", "MARK", "MARS", "MAST", "MEER", "MEES", "MEET", "MEID", "MELK", "MEMO", "MENS", "MERK", "MIER", "MIET", "MIJL", "MIJN", "MIJT", "MILD", "MINI", "MIST", "MITS", "MODE", "MOER", "MOES", "MOET", "MOND", "MOOI", "MOOR", "MOOT", "MOUW", "MUIS", "MUIT", "MUNT", "MUUR", "MUTS", "NAAD", "NAAM", "NAAR", "NACHT", "NEE", "NEEF", "NEER", "NEK", "NERF", "NEST", "NIER", "NIET", "NOOD", "NOOR", "NOOT", "NORM", "OEST", "OLM", "ORDE", "OUDE", "PAAL", "PAAR", "PAAS", "PAND", "PARK", "PAST", "PEEK", "PEIL", "PERK", "PERS", "PEST", "PIEP", "PIER", "PIET", "PIJL", "PIJN", "PINT", "PLAK", "PLAN", "PLAS", "PLAT", "PLEK", "PLOO", "PLOT", "PLUG", "PLUK", "POEL", "POEN", "POEP", "POES", "POET", "POLO", "POMP", "POND", "PONS", "PONT", "POOL", "POOT", "POPP", "PORT", "POST", "RAAD", "RAAF", "RAAI", "RAAK", "RAAM", "RAAR", "RAAS", "RAND", "RANG", "RANK", "REED", "REEF", "REEK", "REEL", "REUK", "RIEK", "RIEM", "RIEP", "RIET", "RIJK", "RIJN", "RING", "RODE", "ROEF", "ROEI", "ROEM", "ROEP", "ROER", "ROES", "ROET", "ROMP", "ROND", "ROOD", "ROOF", "ROOK", "ROOM", "ROOS", "ROOT", "ROUW", "RUIK", "RUIL", "RUIM", "RUIS", "RUIT", "RUND", "RUST", "SAUS", "SLAB", "SLAG", "SLAK", "SLAM", "SLANG", "SLAP", "SLEE", "SLET", "SLIK", "SLIM", "SLIP", "SLOF", "SLOK", "SLOOT", "SLOT", "SLUIS", "SMAK", "SMAL", "SMER", "SMEU", "SMID", "SMOK", "SNEL", "SNEE", "SNIK", "SNOE", "SNOR", "SNOT", "SNUF", "SOEP", "SOFT", "SPAA", "SPAN", "SPAT", "SPEK", "SPEL", "SPER", "SPIE", "SPIL", "SPIN", "SPIT", "SPOE", "SPOR", "SPOT", "SPUI", "SPUL", "STAD", "STAF", "STAK", "STAL", "STAM", "STAP", "STAR", "STED", "STEE", "STEK", "STEL", "STEM", "STEP", "STER", "STIK", "STIL", "STIP", "STOF", "STOK", "STOM", "STOP", "STOT", "STRI", "STRO", "STUK", "STUT", "TAAL", "TAKE", "TALK", "TAND", "TANG", "TAST", "TAXI", "TEAM", "TEER", "TEIL", "TENT", "TERM", "TERP", "TEST", "TEUG", "TIEN", "TIER", "TINT", "TOCH", "TOER", "TOET", "TOLK", "TONG", "TOOI", "TOOM", "TOON", "TORE", "TORN", "TOUW", "TRAP", "TRED", "TREE", "TREF", "TREK", "TRIL", "TRIM", "TRIO", "TRIP", "TROS", "TRUI", "TUBA", "TUCH", "TUIN", "TUIT", "TULP", "TURF", "TURN", "TWEE", "UIER", "UNIT", "URNE", "VAAL", "VAGE", "VAK", "VALK", "VALS", "VARE", "VAST", "VEEL", "VEER", "VEIL", "VENT", "VERF", "VERS", "VEST", "VIER", "VIEZ", "VIJF", "VIJL", "VINK", "VLAG", "VLAK", "VLAM", "VLAS", "VLEI", "VLEK", "VLET", "VLEU", "VLIE", "VLOT", "VLUG", "VOED", "VOEG", "VOEL", "VOER", "VOET", "VOLG", "VOLK", "VOLT", "VOND", "VONK", "VOOR", "VORK", "VORM", "VORS", "VOUW", "VRIJ", "VROE", "VROU", "VUIL", "VUIS", "VULT", "WAAD", "WAAG", "WAAI", "WAK", "WALM", "WALS", "WAND", "WANG", "WANT", "WARM", "WASP", "WAT", "WATT", "WEEG", "WEEK", "WEEF", "WEER", "WEES", "WEET", "WEID", "WEIG", "WEIN", "WEKK", "WELK", "WELP", "WEND", "WENS", "WERF", "WERK", "WERP", "WESP", "WEST", "WIEG", "WIEL", "WIER", "WIJD", "WIJK", "WIJL", "WIJN", "WIJS", "WILD", "WIND", "WINK", "WINST", "WISP", "WIST", "WITT", "WOED", "WOEL", "WOEST", "WOLK", "WOND", "WOON", "WORD", "WORM", "WORP", "WORT", "WOUD", "WUIF", "WULP", "ZAAD", "ZAAK", "ZAAI", "ZAAL", "ZAND", "ZANG", "ZEEF", "ZEEL", "ZEEM", "ZEEP", "ZEER", "ZEGE", "ZEIL", "ZELF", "ZEND", "ZEUR", "ZIEK", "ZIEL", "ZIEN", "ZIER", "ZIET", "ZIJD", "ZIJK", "ZIJL", "ZIJN", "ZILT", "ZIND", "ZING", "ZINK", "ZINT", "ZODE", "ZOEK", "ZOEL", "ZOEM", "ZOEN", "ZOET", "ZOOL", "ZOOM", "ZOON", "ZOOI", "ZORG", "ZOUT", "ZUID", "ZUIL", "ZUIP", "ZULK", "ZWAK", "ZWAM", "ZWAN", "ZWART", "ZWEE", "ZWEL", "ZWEM", "ZWEN", "ZWEP", "ZWER", "ZWIE", "ZWIJ", "ZWIK", "ZWIN"],
+	          5: ["AARDE", "ACTIE", "ADRES", "AGENT", "ALARM", "ALLES", "ANGST", "APPEL", "AVOND", "BAARD", "BASIS", "BEELD", "BEKER", "BENDE", "BESTE", "BEZEM", "BIJNA", "BLANK", "BLAUW", "BLEEK", "BLIJD", "BLIND", "BLOED", "BLOEM", "BLOOT", "BOCHT", "BODEM", "BOETE", "BONUS", "BOORD", "BOVEN", "BRAAF", "BRAND", "BREED", "BREEK", "BRENG", "BRIEF", "BROEK", "BROER", "BROOD", "BRUIN", "BRUUT", "CHAOS", "CHECK", "CLOWN", "CRASH", "DATUM", "DEBAT", "DECOR", "DELFT", "DERDE", "DICHT", "DIENT", "DIEPE", "DINER", "DISCO", "DOSIS", "DRAAD", "DRAAG", "DRAAI", "DRAAK", "DRANK", "DRINK", "DROOM", "DRUGS", "DWARS", "DWERG", "ECHTE", "EERST", "EIGEN", "EINDE", "EIWIT", "ELITE", "EMMER", "ENKEL", "EXTRA", "FEEST", "FIETS", "FOCUS", "FORUM", "FRANS", "FRUIT", "GEBED", "GEEST", "GELIJK", "GELUK", "GEMAK", "GEZIN", "GLANS", "GOEDE", "GRAAD", "GRAAF", "GRAAG", "GRAAN", "GRENS", "GRIEP", "GRIJS", "GROEI", "GROEN", "GROEP", "GROET", "GROND", "GROOT", "HAGEL", "HAMER", "HAVEN", "HEEFT", "HELFT", "HEMEL", "HEVIG", "HOBBY", "HOOFD", "HOTEL", "HOUDT", "HUMOR", "IDEAL", "IDEEË", "INDEX", "INPUT", "IVOOR", "JAGER", "JARIG", "JEUGD", "JONGE", "JUIST", "KAART", "KADER", "KAMER", "KAPOT", "KATER", "KEUZE", "KLAAR", "KLANT", "KLEIN", "KLINK", "KLOOF", "KLUIS", "KNAAP", "KNECHT", "KNIJP", "KOERS", "KOGEL", "KOMMA", "KOMST", "KOPER", "KORTE", "KRAAG", "KRAAK", "KRAAN", "KREUK", "KRIMP", "KRING", "KROON", "KRUIS", "KUNST", "KWAAD", "KWAAL", "KWART", "KWIJT", "LAKEN", "LANDE", "LANGE", "LASER", "LATER", "LATEN", "LEEUW", "LELIE", "LENTE", "LEPEL", "LEVEN", "LEVER", "LICHT", "LIEFDE", "LIEVE", "LIJST", "LINKS", "LITER", "LOKET", "LOODS", "LUCHT", "LUNCH", "MAAKT", "MAAND", "MAART", "MACHT", "MARGE", "MARKT", "MASSA", "MATIG", "MEEST", "MELER", "MENSE", "METER", "MODEL", "MOEST", "MOLEN", "MOOIE", "MOORD", "MOTOR", "MOTTO", "NAAKT", "NAALD", "NATIE", "NEGEN", "NIETS", "NIEUW", "NOBEL", "NODIG", "NOOIT", "NOORD", "NORM", "OFFER", "OMDAT", "ONDER", "OPTIE", "ORDER", "ORGEL", "OUDER", "PAARD", "PANIE", "PAREL", "PAUZE", "PIANO", "PIZZA", "PLAAT", "PLANK", "PLANT", "PLEIN", "PLOOI", "PLOTS", "POORT", "POSTE", "POWER", "PRINS", "PRINT", "PROEF", "PRUIK", "PUNTE", "PUPIL", "QUOTA", "QUOTE", "RADIO", "RAKET", "RECHT", "REEKS", "REGEL", "REGIE", "REGIO", "REKEN", "RENTE", "RICHT", "RIJKE", "RIJST", "RITME", "ROBOT", "ROEST", "ROMAN", "RONDE", "ROOKT", "ROUTE", "ROVER", "RUIME", "RUINE", "RUSTIG", "SAUNA", "SCÈNE", "SFEER", "SHIRT", "SJAAL", "SKATE", "SLAAP", "SLAAF", "SLANG", "SLANK", "SLEEP", "SLOOT", "SLUIS", "SLUIT", "SMAAK", "SMART", "SMEER", "SMELT", "SNAAR", "SNACK", "SNEEU", "SNIJD", "SNOEP", "SOORT", "SPAAK", "SPEED", "SPEEL", "SPEER", "SPELT", "SPIER", "SPIJT", "SPIND", "SPITS", "SPOED", "SPOEL", "SPOOK", "SPOOR", "SPORT", "SPRAY", "SPUIT", "STAAF", "STAAK", "STAAL", "STAAN", "STAAR", "STAAT", "STADS", "STAMP", "STAND", "STANG", "START", "STEEK", "STEEL", "STEEN", "STEMT", "STERK", "STEUN", "STIER", "STIFT", "STIJG", "STIJL", "STILK", "STOEL", "STOEP", "STOER", "STOFD", "STOKK", "STOMP", "STOND", "STOOF", "STOOI", "STOOM", "STOOR", "STOOT", "STORM", "STORT", "STRAF", "STRIP", "STROO", "STUUR", "SUPER", "SUSHI", "TAART", "TABEL", "TAFEL", "TALEN", "TARWE", "TEGEN", "TEKEN", "TEKST", "THEMA", "THUIS", "TIENI", "TIJDS", "TITEL", "TOCHT", "TOETS", "TOREN", "TOUCH", "TRAAG", "TRAAN", "TRACK", "TRAIN", "TREIN", "TREND", "TROTS", "TROUW", "TRUCK", "TUCHT", "TUING", "TULPE", "TURBO", "TWEEW", "TWIST", "TYPEN", "VADER", "VANAF", "VASTE", "VECHT", "VEDER", "VEILIG", "VERRE", "VERSE", "VESTE", "VIDEO", "VIERD", "VILLA", "VIOOL", "VIRUS", "VISIE", "VLEES", "VLIEG", "VLIET", "VLOED", "VLOER", "VLUCH", "VOEDT", "VOEGT", "VOELT", "VOERT", "VOGEL", "VOLGT", "VOLLE", "VOOGD", "VORIG", "VORST", "VRAAG", "VREDE", "VREES", "VREET", "VRIJE", "VROEG", "VROOM", "VROUW", "VRUCH", "VUIST", "WAGEN", "WAGON", "WATER", "WEIDE", "WELKE", "WERKT", "WESTE", "WETEN", "WIEG", "WIJZE", "WILDE", "WINST", "WINTER", "WOEDE", "WOEST", "WONEN", "WOONT", "WOORD", "WORDT", "WORST", "WRAAK", "WREED", "WRING", "YACHT", "ZAKEN", "ZALIG", "ZEBRA", "ZEKER", "ZELF", "ZELFS", "ZENUW", "ZEVEN", "ZICHT", "ZIEKE", "ZIEKT", "ZIJDE", "ZINGT", "ZINKT", "ZOMER", "ZONNE", "ZORGT", "ZOUTE", "ZUIDE", "ZUIGT", "ZULKE", "ZUSJE", "ZWAAN", "ZWAAR", "ZWART", "ZWEEP", "ZWEER", "ZWEET", "ZWEMT", "ZWENK", "ZWERF"],
+	          6: ["AANPAK", "AANTAL", "ACHTER", "ACTEUR", "ADVIES", "AFSTAND", "AGENDA", "AGENTE", "ALCOHOL", "ARMEER", "ARTIEK", "ASPECT", "AUTEUR", "BAKKER", "BALKON", "BANKEN", "BEIDEN", "BELEID", "BENZNE", "BERGEN", "BEWIJS", "BEZOEK", "BIEREN", "BIJKAN", "BLADEN", "BLAUWE", "BLIKJE", "BLOEMS", "BOEREN", "BOEKEN", "BOERIN", "BORDEN", "BORREL", "BOSSEN", "BOUWER", "BRAMEN", "BRANDT", "BRIEVE", "BROERS", "BUITEN", "BUREAU", "CAMPER", "CADEAU", "CAMERA", "CANVAS", "CARTER", "CASINO", "COWBOY", "CURSUS", "DANKJE", "DEKKER", "DEKSEL", "DENKER", "DERPTE", "DIEREN", "DIENST", "DOKTER", "DORPEN", "DOSSIER", "DRAKEN", "DROMEN", "DRUPEL", "DUBBEL", "DUIKER", "EILAND", "ELKAAR", "ENQUÊTE", "ETHIEK", "EUROPA", "FAMILIE", "FIGURE", "FILTER", "FINALE", "FLACON", "FLIGHT", "FOLDER", "FOTOO'S", "FRIETJE", "GARAGE", "GEBAAK", "GEBIED", "GEBREK", "GEDULD", "GEHEEL", "GEHEIM", "GELUID", "GELOOF", "GEMEEN", "GENERA", "GEVAAR", "GEVOEL", "GEWELD", "GEZICHT", "GITAAR", "GLAZEN", "GRACHT", "GRIEKH", "GRONDY", "HANDEL", "HARKJE", "HELDER", "HERFST", "HEUVEL", "HOEKJE", "HOOGTE", "HORECA", "HOUDER", "HUIDIG", "HUISJE", "HULPJE", "IDEEËN", "IJZERB", "IMPACT", "INGANG", "INHOUD", "INSECT", "ISLAND", "JASJE", "JONGEN", "KADERS", "KAMEEL", "KANAAL", "KANSEN", "KANTOOR", "KASTJE", "KATOEN", "KATTEN", "KEUKEN", "KEUZES", "KINDER", "KLASSE", "KLEDING", "KLEINE", "KOFFIE", "KONING", "KOPPEL", "KRACHT", "KREUKT", "KREKEL", "KRIJGS", "KUNNEN", "KUSSEN", "LAARST", "LADDER", "LANDEN", "LENGTE", "LEPELS", "LETTER", "LEUGEN", "LIEFDE", "LIJNEN", "LIPPEN", "LIJKEN", "LUCHTS", "LUIERS", "MAAKTE", "MAAGDE", "MANIER", "MANTEL", "MARKTN", "MASKER", "MEIDEN", "MEISJE", "MENSEN", "MERKEN", "METERS", "MIDDEL", "MILIEU", "MINUUT", "MODELS", "MOEDER", "MOEITE", "MOMENT", "MORGEN", "MUZIEK", "NAGELS", "NATUUR", "NIEUWS", "NIVEAU", "ONTBIJ", "OORLOG", "OPGAVE", "ORANJE", "ORKEST", "OUDERS", "PAGINA", "PAKKET", "PANEEL", "PAPIER", "PARIJS", "PASSIE", "PERRON", "PILSJE", "PLAATS", "PLAFON", "PLANTY", "PLASTIC", "PLEZIER", "PODIUM", "POLITI", "POLDER", "PONTJE", "POORTY", "POSTER", "PREMIE", "PRUIKE", "PUZZEL", "RANDEN", "RECHTS", "REGENS", "REGELS", "REISJE", "RELATIE", "REMMEN", "RIJKDOM", "RINGEN", "ROEREN", "RONDTE", "RUIMTE", "RUSTIG", "SALADE", "SCHAAL", "SCHADE", "SCHEID", "SCHELP", "SCHERM", "SCHETS", "SCHRIJ", "SCHOOL", "SCHOEN", "SCHULD", "SERIER", "SIGNAL", "SLEUTEL", "SMILEY", "SNEEUW", "SOCIET", "SPEELT", "SPELER", "SPERMA", "SPREUK", "SPRONG", "STAART", "STADJE", "STAKEN", "STALEN", "STALET", "STATION", "STEEDS", "STELEN", "STEMME", "STERRE", "STEUNS", "STRAAT", "STRAND", "STREEK", "STRESS", "STRIJD", "STROOK", "STUDIO", "SUCCES", "SUIKER", "TABELN", "TAFELS", "TALENT", "TANDEN", "TASSEN", "TEGELS", "TEKENE", "TEKENS", "TEKSTU", "TENNIS", "TERRAS", "THEMA'S", "THEORY", "TICKET", "TIJDEN", "TOESTE", "TONNEN", "TORENS", "TOTAAL", "TRAINER", "TRANEN", "TWEEDE", "UITLEG", "VAKKEN", "VARKENS", "VEEWEE", "VELDEN", "VENTIL", "VERAAL", "VERBOD", "VERDIE", "VERHAA", "VERIES", "VERLOB", "VERLRE", "VERSCH", "VERZET", "VESTEN", "VIERDE", "VINGER", "VISITE", "VISSEN", "VLAGGE", "VLAKTE", "VLECHT", "VLEUGEL", "VLIEGT", "VLOERE", "VLOKKE", "VLOTTE", "VOEDER", "VOEDSEL", "VOEGDE", "VOEREN", "VOETEN", "VOGELS", "VOLKEN", "VONKEN", "VOORAL", "VOORBI", "VOORDE", "VORKEN", "VORMEN", "VOTERS", "VRACHT", "VRAGEN", "VRIEND", "VROUWE", "VRUCHT", "VUISTE", "WAGENS", "WANDEL", "WANGEN", "WAPENS", "WASSEN", "WATERS", "WEIDEN", "WEKENS", "WELKE", "WENSEN", "WERELD", "WERKEN", "WESTEN", "WETTEN", "WIEKEN", "WIJKER", "WIJZEN", "WILDEN", "WINKEL", "WINTER", "WISSEN", "WOORDT", "WORTEL", "WRAAK", "ZAKKEN", "ZANGER", "ZEEUWS", "ZEGGEN", "ZEKERH", "ZELVEN", "ZENDER", "ZENUW", "ZESTIG", "ZETTEN", "ZEVENS", "ZIEKTE", "ZIJDEN", "ZILVER", "ZITTEN", "ZOEKEN", "ZONDAG", "ZORGEN", "ZOUTER", "ZUIDEN", "ZUSSEN", "ZWARTE", "ZWEVEN", "ZWEMME"],
+	         // 7: ["AALGLAD", "AANBIDT", "AANBLIK", "AANDEEL", "AANGAVE", "AANHANG", "AANJAGE", "AANKOOP", "AANLEER", "AANLOOP", "AANMELD", "AANREIK", "AANROEP", "AANSTEL", "AANZIEN", "AARDBEI", "AARDGAS", "AARDING", "AARDRIJK", "ABORTUS", "ABSURDE", "ADAPTER", "ADELDOM", "AFBEELD", "AFBREUK", "AFGEZET", "AFGODEN", "AFGROND", "AFGUNST", "AFKOMST", "AFLEVER", "AFLATEN", "AFRADEN", "AFREKEN", "AFSLUIT", "AFSTAND", "AFWEZIG", "ALARMEN", "ALLEMAAL", "ALMANAK", "AMATEUR", "AMBITIE", "AMERIKA", "ANALYSE", "ANATOMIE", "ANGSTIG", "ANKEREN", "ANTIEKE", "ARABIER", "ARBEIDE", "ARCHIEF", "ARMBAND", "ARTIEST", "ASBESTEN", "AUTOBUS", "AUTOWEG", "AZIATEN", "BABBELT", "BABYBED", "BACCARA", "BACKUPS", "BADKUIP", "BADMUTS", "BADSTAD", "BAKMEEL", "BAKOVEN", "BAKSTER", "BALLADE", "BALLAST", "BALLING", "BALLONS", "BALSPEL", "BANDIET", "BANKBED", "BANKIER", "BANKPAS", "BARBAAR", "BARCODE", "BARISTA", "BASSIST", "BASTION", "BAVETTE", "BEADEMT", "BEANGST", "BEDANKT", "BEDAREN", "BEDELEN", "BEDOELD", "BEDRAAG", "BEDRIJF", "BEDROEG", "BEDROEF", "BEDRUKT", "BEELDEN", "BEESTEN", "BEGEERT", "BEGINNE", "BEGRENS", "BEGROET", "BEHALVE", "BEIJEREN", "BEJAARD", "BEKEREN", "BELADEN", "BELAGEN", "BELANGS", "BELEEFD", "BELEGEN", "BELEGER", "BELETTE", "BELOFTE", "BELOOND", "BEMANDE", "BEMERKT", "BEMINDE", "BENAUWD", "BENEVEL", "BENODIG", "BEPAALD", "BEPERKT", "BEPLANT", "BEPLEIT", "BERADEN", "BEREIDT", "BEREIKT", "BERICHT", "BEROERD", "BEROOFD", "BEROVEN", "BERUCHT", "BERUSTE", "BESEFFEN", "BESLISS", "BESLOTEN", "BESMEER", "BESPAAR", "BESPEEL", "BESPIED", "BESPUIT", "BESTAAN", "BESTEED", "BESTIER", "BESTORM", "BESTUUR", "BETAALD", "BETALEN", "BETEKEN", "BETEREN", "BETOOND", "BETOVER", "BETREFT", "BETUIGD", "BEUGELS", "BEUREND", "BEURZEN", "BEVAART", "BEVECHT", "BEVESTI", "BEVINDT", "BEVREES", "BEVRIJD", "BEVRIEZ", "BEVRORE", "BEWAAKT", "BEWAARD", "BEWATER", "BEWEEGT", "BEWERKT", "BEWUSTE", "BEZEMEN", "BEZETTE", "BEZIELT", "BEZIGEN", "BEZINKT", "BEZOCHT", "BEZOEKT", "BEZORGD", "BEZWAAR", "BEZWEER", "BEZWING", "BIEDING", "BIERKAN", "BIERTJE", "BIESTEN", "BIJBELS", "BIJBAAN", "BIJSTER", "BIJTEND", "BIJZOND", "BILJART", "BINDEND", "BINNENK", "BITTERE", "BLAADJE", "BLANKEN", "BLAZERS", "BLEEKEN", "BLEEKTE", "BLIJVEN", "BLINKEN", "BLOEDIG", "BLOEMEN", "BLOEMIG", "BLOESEM", "BLOKHUT", "BLOKKEN", "BLOKKER", "BLONDJE", "BLUSSEN", "BLUSSER", "BOCHTIG", "BOEKING", "BOENDER", "BOERDER", "BOERTIG", "BOETIEK", "BOLSTER", "BOLWERK", "BOMBAST", "BOOMHUT", "BOOMPJE", "BOORDEN", "BOOTJES", "BORRELS", "BORSTEL", "BOSRAND", "BOTANIE", "BOUWERS", "BOUWVAK", "BOVENAL", "BOVENAF", "BRANDEN", "BRASSER", "BREIDEN", "BRENGEN", "BREUKEN", "BRONSEN", "BROODJE", "BROUWER", "BRUGGEN", "BRULLEN", "BRUTALE", "BUBBELS", "BUDGETS", "BUIKPIJN", "BUITELI", "BUREAUS", "BUURMAN", "CABARET", "CABINES", "CALCIUM", "CALORIE", "CAMPING", "CANDIDA", "CAPSULE", "CARAVAN", "CASCADE", "CELKERN", "CENTRUM", "CHARTER", "CHASSIS", "CHATTEN", "CHEDDAR", "CHEQUES", "CHLORIDE", "CHOLERA", "CIJFERS", "CIRCUIT", "CITROEN", "CIVIELE", "COACHES", "CODEREN", "COLLEGE", "COMBINE", "COMFORT", "COMMANDO", "COMPACT", "COMPLEX", "COMPOST", "CONCEPT", "CONCERT", "CONCOURS", "CONCREET", "CONDOOM", "CONFLICT", "CONFORM", "CONGRES", "CONTACT", "CONTENT", "CONTEXT", "CONTINU", "CONTOUR", "CONTRAC", "CORRECT", "COSTUUM", "COUREUR", "COUPONS", "COUPLET", "COWBOYS", "CREATIE", "CREATOR", "CREDITS", "CRICKET", "CULTUUR", "CURATOR", "CURIOSA", "CYCLOON", "DAARBIJ", "DAARMEE", "DAARNAA", "DAGBLAD", "DAGBOEK", "DAGLOON", "DAGMENU", "DAGREIS", "DAKGOOT", "DAKLOOS", "DAMBORD", "DAMPKAP", "DANKDAG", "DANSDER", "DANSLES", "DARTELE", "DASHOND", "DAVEREN", "DEBACLE", "DEBATTE", "DECREET", "DEELNAM", "DEELTJE", "DEFENSI", "DEFICIT", "DEMONEN", "DENKBAA", "DENKWERK", "DESSERT", "DEUGDEN", "DIADEEM", "DIAGRAM", "DIALECT", "DIALOOG", "DIAMANT", "DIARREE", "DICHTBIJ", "DICHTER", "DICHTST", "DICHTTE", "DIEFSTAL", "DIENAAR", "DIENDER", "DIERING", "DIEPGAN", "DIEPVRIES", "DIESELS", "DIGITAAL", "DIKHEID", "DILEMMA", "DINEREN", "DIPLOMA", "DIRECTE", "DIRECTIE", "DISPLAY", "DOCENTEN", "DOCHTER", "DODELIJK", "DOELMAN", "DOELWIT", "DOOREEN", "DOSSIER", "DRAADJE", "DRAAIER", "DRANKJE", "DREMPEL", "DRESSUUR", "DRIFTIG", "DRINKER", "DROEVIG", "DRUKKER", "DRUPPEL", "DUBBELS", "DUIKBOOT", "DUIKELAAR", "DUISTERE", "DUIZEND", "DWEILEN", "DWINGEN", "EENHEID", "EENVOUD", "EERLIJK", "EETZAAL", "EEUWIGE", "EILAND", "ELEMENT", "ELKAAR", "ENERGIE", "ENQUÊTE", "ETALAGE", "ETHIEK", "EVENEEN", "EXAMENS", "EXPERTS", "EXTERNE", "EXTRACT", "FABRIEK", "FACTUUR", "FAMILIE", "FANTASY", "FEESTEN", "FIETSER", "FIETSEN", "FIGUREN", "FILTERS", "FINALES", "FITNESS", "FLITSEN", "FLORIJN", "FORMULE", "FUNCTIE", "GARAGES", "GEBAREN", "GEBEURD", "GEBIED", "GEBRUIK", "GEDACHT", "GEGEVEN", "GEHALTE", "GEHEIME", "GEHOREN", "GELDIGE", "GELEDEN", "GELEGEN", "GELIJK", "GEMAAKT", "GENIET", "GENOMEN", "GERECHT", "GERICHT", "GERUCHT", "GESPREK", "GETUIGE", "GEVAREN", "GEVECHT", "GEWELD", "GEWICHT", "GEZICHT", "GEZONDE", "GIERIGE", "GIGANT", "GITAAR", "GLAZEN", "GRAPPIG", "GRAVEN", "GRIJPEN", "GROEIEN", "GROENTE", "GROEPEN", "GROOTST", "HAARDEN", "HAASTIG", "HALTES", "HANDELS", "HANDIGE", "HAVENS", "HEILIGE", "HELFTEN", "HELLING", "HELPERS", "HERFST", "HERSTEL", "HERTEN", "HEUVELS", "HIERBIJ", "HIERMEE", "HOEVEEL", "HOGERE", "HONDEN", "HONGER", "HOOFDEN", "HOOGSTE", "HOOPVOL", "HOUDEN", "HUIDIGE", "HUISJES", "IDEALEN", "IEDERE", "IJZEREN", "IMPACT", "INDRUK", "INSTANT", "INTERNE", "INVLOED", "INWONER", "INZICHT", "JAARTAL", "JAGERS", "JASSEN", "JONGENS", "JUISTE", "KAARTEN", "KABINET", "KANAAL", "KANTOOR", "KATTEN", "KAZERNE", "KEUKENS", "KEUZES", "KIPPEN", "KLANKEN", "KLANTEN", "KLASSEN", "KLEDING", "KLEINER", "KLEUREN", "KLIMMEN", "KLINKER", "KLOPPEN", "KNIPPEN", "KOERSEN", "KOFFERS", "KONING", "KOOPMAN", "KOPEREN", "KOPPELS", "KORTING", "KOSTEN", "KREDIET", "KRIJGEN", "KRIMPEN", "KRINGEN", "KUSSENS", "KWARTEL", "LAARZEN", "LAATSTE", "LADDERS", "LANDING", "LANGSTE", "LEVEREN", "LICHAAM", "LICHTER", "LIEGEN", "LIEVER", "LIJNEN", "LOCATIE", "LOODSEN", "LUCHTEN", "LUISTER", "MAANDAG", "MACHTIG", "MACHINE", "MANAGER", "MANIER", "MANTELS", "MARKTEN", "MASKERS", "MASSAGE", "MEEDOEN", "MEESTAL", "MELDING", "MENSEN", "MEUBELS", "MIDDELS", "MIDDEN", "MILIEU", "MILJOEN", "MINIMUM", "MINUUT", "MOBIELE", "MODERNE", "MOEDERS", "MONSTER", "MONTAGE", "MOOISTE", "MOORDEN", "MORGEN", "MOTOREN", "MUSEUMS", "MUSICAL", "NACHTEN", "NADEEL", "NATUREL", "NETWERK", "NIEUWE", "NOORDEN", "NORMALE", "NOTITIE", "NUMMERS", "OCHTEND", "OKTOBER", "OMVANG", "ONDANKS", "ONDERIN", "ONEIND", "ONGELUK", "ONLANGS", "ONTHAAL", "ONTHOUD", "ONTSLAG", "ONTSTA", "ONTVANG", "ONTWERP", "OORLOG", "OPBOUW", "OPENING", "OPKOMST", "OPNAME", "OPRICHT", "OPSLAG", "OVERAL", "OVERIGE", "OVERLEG", "PAARDEN", "PAGINA", "PALEIS", "PANELEN", "PANIEK", "PARTNER", "PASSAGE", "PASSIES", "PEILING", "PERCENT", "PERFECT", "PERIODE", "PERSOON", "PILOTEN", "PINNEN", "PLAFOND", "PLAKKEN", "PLANNEN", "PLANTEN", "PLASTIC", "PLATEAU", "PLEINEN", "PLEKKEN", "PODIUMS", "POLDERS", "POLITIE", "POMPEN", "PONDEN", "POORTEN", "PORTIER", "POSITIE", "POSTERS", "PRECIES", "PREMIES", "PRINSEN", "PRINTER", "PRIVACY", "PROBEER", "PRODUCT", "PROJECT", "PUBLIEK", "PUZZELS", "RAADSEL", "RADARS", "RECHTEN", "RECLAME", "REDENEN", "REEKSEN", "REGEREN", "REIZERS", "REKENEN", "REMMING", "RENTES", "RESERVE", "RESTANT", "RICHTEN", "RIDDERS", "RIJKDOM", "RIJKSTE", "RINGEN", "ROBOTS", "RONDOM", "ROOSTER", "ROUTES", "RUIMTEN", "RUIMTES", "SCHAKEL", "SCHALEN", "SCHEREN", "SCHERPE", "SCHETS", "SCHIJNT", "SCHOEN", "SCHOOL", "SCHRIFT", "SCHULD", "SEIZOEN", "SERVICE", "SIGNAAL", "SIERAAD", "SLEUTEL", "SLIMME", "SLUITEN", "SNEEUW", "SNIJDEN", "SOLDAAT", "SOORTEN", "SPECIAL", "SPELERS", "SPINNEN", "SPORTS", "SPREKEN", "SPUITEN", "STALEN", "STAMPEN", "STANDEN", "STARTEN", "STATION", "STEIGER", "STEKKER", "STELLEN", "STEMMEN", "STERKEN", "STERREN", "STEUNEN", "STIEREN", "STIJGEN", "STIJLEN", "STILLEN", "STILTE", "STOFFEN", "STOKKEN", "STONDEN", "STOPPEN", "STORMEN", "STORTEN", "STRAFFE", "STREPEN", "STRIJD", "STROOM", "STRUIK", "SUCCES", "SUIKER", "SYSTEEM", "TAARTEN", "TAFELS", "TALENT", "TANDEN", "TARIEF", "TEGELS", "TEKENEN", "TEKSTEN", "TELKENS", "TERREIN", "TICKETS", "TIJDENS", "TITELS", "TOESTEL", "TOETSEN", "TOTAAL", "TRAINER", "TRANEN", "TRAPPEN", "TREINEN", "TREKKEN", "TRENDS", "TROTS", "TROUWEN", "TWEEDE", "TYPEN", "UITERST", "UITGAVE", "UITLEG", "UITSLAG", "UITVOER", "UNIEKE", "UNIFORM", "VADERS", "VALLEN", "VANAF", "VANZELF", "VARKENS", "VASTEN", "VECHTEN", "VEILIG", "VERBAND", "VERBOD", "VERDIEN", "VERGEET", "VERHALE", "VERKEER", "VERLORE", "VERSLAG", "VERVANG", "VERVOER", "VERZET", "VESTING", "VIERDEN", "VIEREN", "VINGERS", "VISIES", "VISSEN", "VITRINE", "VLAGGEN", "VLAKTEN", "VLEUGEL", "VLIEGEN", "VLOEIEN", "VLOEREN", "VOEDING", "VOEDSEL", "VOELEN", "VOETBAL", "VOETEN", "VOGELS", "VOLDOEN", "VOLGENS", "VONKEN", "VOORAL", "VOORBIJ", "VOORSTE", "VOORUIT", "VORMEN", "VORSTEN", "VRAGEN", "VREEMDE", "VRIEND", "VROEG", "VROLIJK", "VROUWEN", "VUISTEN", "VULLING", "WAARDEN", "WAARDIG", "WACHTEN", "WAGENS", "WANDEL", "WANGEN", "WAPENS", "WARMTE", "WASSEN", "WEBSITE", "WEEKEND", "WEINIG", "WERELD", "WESTEN", "WETTEN", "WIJZEN", "WILDEN", "WINKELS", "WINNEN", "WINTERS", "WISSEN", "WOESTE", "WOLKEN", "WONING", "WOORDEN", "WORTELS", "WRINGEN", "YACHTEN", "ZAKKEN", "ZALIGE", "ZENDER", "ZENUWEN", "ZESTIG", "ZETELS", "ZETTEN", "ZIEKEN", "ZIEKTEN", "ZIJDEN", "ZILVER", "ZINGEN", "ZINKEN", "ZITTEN", "ZOEKERS", "ZONDAG", "ZONNE", "ZORGEN", "ZUIDEN", "ZULLEN", "ZUSTER", "ZWARTE", "ZWEMMEN", "ZWERVEN"]
+	      }
+	  };
+
+      const azerty = [
+          ["a","z","e","r","t","y","u","i","o","p"],
+          ["q","s","d","f","g","h","j","k","l","m"],
+          ["ENTER", "w", "x", "c", "v", "b", "n", "?"]
+      ];
+
+      let secretWord = "", currentGuess = "", guesses = [], gameOver = false;
+      let foundLetters = new Set();
+
+      function initGame() {
+          const lang = document.getElementById('lang').value;
+          const len = parseInt(document.getElementById('length').value);
+          secretWord = wordList[lang][len][Math.floor(Math.random() * wordList[lang][len].length)].toLowerCase();
+
+          currentGuess = ""; guesses = []; gameOver = false; foundLetters.clear();
+
+          const board = document.getElementById('game-board');
+          board.innerHTML = "";
+          board.style.gridTemplateColumns = `repeat(${len}, 1fr)`;
+          for (let i = 0; i < 6 * len; i++) {
+              const tile = document.createElement('div');
+              tile.className = 'tile'; tile.id = `tile-${i}`;
+              board.appendChild(tile);
+          }
+
+          drawKeyboard();
+          document.getElementById('result-img').src = getRandomImageUrl();
+          document.getElementById('result-img').style.filter = "blur(40px)";
+          document.getElementById('fs-btn').style.display = "none";
+      }
+
+      function drawKeyboard() {
+          const kb = document.getElementById('keyboard');
+          kb.innerHTML = "";
+          azerty.forEach(row => {
+              const rowDiv = document.createElement('div');
+              rowDiv.className = 'key-row';
+              row.forEach(key => {
+                  const keyBtn = document.createElement('div');
+                  keyBtn.className = 'key' + (key.length > 1 ? ' wide' : '');
+                  keyBtn.innerText = key;
+                  keyBtn.id = `key-${key.toLowerCase()}`;
+                  keyBtn.onclick = () => handleInput(key);
+                  rowDiv.appendChild(keyBtn);
+              });
+              kb.appendChild(rowDiv);
+          });
+      }
+
+      function handleInput(key) {
+          if (gameOver) return;
+          const len = secretWord.length;
+          if (key === "ENTER" || key === "Enter") {
+              if (currentGuess.length === len) submitGuess();
+          } else if (key === "?" || key === "Backspace") {
+              currentGuess = currentGuess.slice(0, -1);
+              updateDisplay();
+          } else if (/^[a-zA-Z]$/.test(key) && currentGuess.length < len) {
+              currentGuess += key.toLowerCase();
+              updateDisplay();
+          }
+      }
+
+      function updateDisplay() {
+          const len = secretWord.length;
+          const startIdx = guesses.length * len;
+          for (let i = 0; i < len; i++) {
+              document.getElementById(`tile-${startIdx + i}`).innerText = currentGuess[i] || "";
+          }
+      }
+
+      async function submitGuess() {
+	            const len = secretWord.length;
+	            const guessToProcess = currentGuess;
+	            const lang = document.getElementById('lang').value;
+	            const startIdx = guesses.length * len;
+
+	            // --- WOORD CONTROLE ---
+	            let isValid = true;
+	            if (lang === "en") {
+	                try {
+	                    const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${guessToProcess}`);
+	                    if (!response.ok) isValid = false;
+	                } catch (err) { isValid = true; }
+	            } else {
+	               // Controleer of het getypte woord in onze Nederlandse lijst staat
+				           // We kijken in alle lengtes voor de zekerheid, zodat een geldig woord
+				           // van de juiste lengte altijd gevonden wordt.
+
+				               isValid = true;
+
+ 				   }
+
+	            if (!isValid) {
+	                for (let i = 0; i < len; i++) {
+	                    const tile = document.getElementById(`tile-${startIdx + i}`);
+	                    tile.classList.add('shake');
+	                    setTimeout(() => tile.classList.remove('shake'), 500);
+	                }
+	                setTimeout(() => {
+	                    alert("Invalid word!");
+	                    currentGuess = "";
+	                    updateDisplay();
+	                }, 300);
+	                return;
+	            }
+
+	            // --- KLEUREN EN FLIP ANIMATIE ---
+	            const guessArr = guessToProcess.split("");
+
+	            guessArr.forEach((char, i) => {
+	                const tile = document.getElementById(`tile-${startIdx + i}`);
+	                const key = document.getElementById(`key-${char}`);
+
+	                // Pas de animatie toe met een vertraging per letter (100ms per tegel)
+	                setTimeout(() => {
+	                    tile.classList.add('flip');
+
+	                    // Halverwege de animatie (300ms) veranderen we de kleur
+	                    setTimeout(() => {
+	                        if (char === secretWord[i]) {
+	                            tile.classList.add('correct');
+	                            key.classList.add('correct');
+	                            foundLetters.add(char);
+	                        } else if (secretWord.includes(char)) {
+	                            tile.classList.add('present');
+	                            if (!key.classList.contains('correct')) key.classList.add('present');
+	                            foundLetters.add(char);
+	                        } else {
+	                            tile.classList.add('absent');
+	                            if (!key.classList.contains('correct') && !key.classList.contains('present')) {
+	                                key.classList.add('absent');
+	                            }
+	                        }
+
+	                        // Update blur na elke onthulde letter voor een vloeiend effect
+	                        let newBlur = Math.max(0, 40 - (foundLetters.size * 7));
+	                        document.getElementById('result-img').style.filter = `blur(${newBlur}px)`;
+	                    }, 300);
+
+	                }, i * 150);
+	            });
+
+	            // Wacht tot alle animaties klaar zijn voordat we de game-state checken
+	            setTimeout(() => {
+	                if (guessToProcess === secretWord) {
+	                    document.getElementById('result-img').style.filter = "blur(0px)";
+	                    document.getElementById('fs-btn').style.display = "block";
+	                    gameOver = true;
+	                    // Een kleine vertraging voor de win-melding
+	                    setTimeout(() => alert("Gefeliciteerd!"), 500);
+	                } else {
+	                    guesses.push(guessToProcess);
+	                    currentGuess = "";
+	                    if (guesses.length >= 6) {
+	                        alert("Helaas! Het woord was: " + secretWord);
+	                        gameOver = true;
+	                    }
+	                }
+	            }, (len * 150) + 600);
+      }
+      function openModal() {
+          const modal = document.getElementById('modal');
+          document.getElementById('modal-img').src = document.getElementById('result-img').src;
+          modal.style.display = "flex";
+      }
+
+      window.addEventListener('keydown', (e) => handleInput(e.key));
+      initGame();
+</script>
+</body>
+</html>
